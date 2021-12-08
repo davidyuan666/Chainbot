@@ -110,49 +110,49 @@ try {
 async function handleTransaction(transaction, out_token_address, user_wallet, amount, level) {
     
     if (await triggersFrontRun(transaction, out_token_address, amount, level)) {
-        // subscription.unsubscribe();
-        // console.log('Perform front running attack...');
+        subscription.unsubscribe();
+        console.log('Perform front running attack...');
 
-        // let gasPrice = parseInt(transaction['gasPrice']);
-        // let newGasPrice = gasPrice + 50*ONE_GWEI;
-        // console.log('Victim Tx gas price: '+ gasPrice/ONE_GWEI);
-        // console.log('New Front Tx gas price: '+ newGasPrice/ONE_GWEI);
-        // var estimatedInput = ((amount*0.999)*(10**18)).toString();
-        // var realInput = (amount*(10**18)).toString();
-        // var gasLimit = (300000).toString();
+        let gasPrice = parseInt(transaction['gasPrice']);
+        let newGasPrice = gasPrice + 50*ONE_GWEI;
+        console.log('Victim Tx gas price: '+ gasPrice/ONE_GWEI);
+        console.log('New Front Tx gas price: '+ newGasPrice/ONE_GWEI);
+        var estimatedInput = ((amount*0.999)*(10**18)).toString();
+        var realInput = (amount*(10**18)).toString();
+        var gasLimit = (300000).toString();
         
-        // await updatePoolInfo();
+        await updatePoolInfo();
 
-        // var outputtoken = await pancakeRouter.methods.getAmountOut(estimatedInput, pool_info.input_volumn.toString(), pool_info.output_volumn.toString()).call();
-        // console.log('output Token is: '+ (outputtoken/(10**18)).toString())
-        // //0 is Buy
-        // swap(newGasPrice, gasLimit, outputtoken, realInput, 0, out_token_address, user_wallet, transaction);
+        var outputtoken = await pancakeRouter.methods.getAmountOut(estimatedInput, pool_info.input_volumn.toString(), pool_info.output_volumn.toString()).call();
+        console.log('output Token is: '+ (outputtoken/(10**18)).toString())
+        //0 is Buy
+        swap(newGasPrice, gasLimit, outputtoken, realInput, 0, out_token_address, user_wallet, transaction);
 
-        // console.log("wait until the honest transaction is done...", transaction['hash']);
+        console.log("wait until the honest transaction is done...", transaction['hash']);
 
-        // while (await isPending(transaction['hash'])) {
-        // }
+        while (await isPending(transaction['hash'])) {
+        }
 
-        // if(buy_failed)
-        // {
-        //     succeed = false;
-        //     return;
-        // }   
+        if(buy_failed)
+        {
+            succeed = false;
+            return;
+        }   
         
-        // console.log('Buy succeed:')
+        console.log('Buy succeed:')
         
        
-        // await updatePoolInfo();
-        // var outputeth = await pancakeRouter.methods.getAmountOut(outputtoken, pool_info.output_volumn.toString(), pool_info.input_volumn.toString()).call();
-        // outputeth = outputeth * 0.999;
+        await updatePoolInfo();
+        var outputeth = await pancakeRouter.methods.getAmountOut(outputtoken, pool_info.output_volumn.toString(), pool_info.input_volumn.toString()).call();
+        outputeth = outputeth * 0.999;
 
-        // console.log('outputETH is: '+ (outputeth/10**18).toString)
+        console.log('outputETH is: '+ (outputeth/10**18).toString)
 
-        //  //1 is Sell
-        // await swap(newGasPrice, gasLimit, outputtoken, outputeth, 1, out_token_address, user_wallet, transaction);
+         //1 is Sell
+        await swap(newGasPrice, gasLimit, outputtoken, outputeth, 1, out_token_address, user_wallet, transaction);
         
-        // console.log('Sell succeed');
-        // succeed = true;
+        console.log('Sell succeed');
+        succeed = true;
     }
 }
 
