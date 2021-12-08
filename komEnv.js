@@ -857,8 +857,11 @@ const KOMSALEABI=[
     ]
 const KOMSALEADDR='0x5995293a6e366D49ab45D06BD1395524D6FB8803'
 
-const HTTP_PROVIDER_LINK = `https://speedy-nodes-nyc.moralis.io/a5e25d730109d85f44f4516a/polygon/mumbai`;
-const PRIVATE_KEY=''
+// const HTTP_PROVIDER_LINK = `https://speedy-nodes-nyc.moralis.io/a5e25d730109d85f44f4516a/polygon/mumbai`;
+
+const HTTP_PROVIDER_LINK = 'https://data-seed-prebsc-1-s3.binance.org:8545/';
+const PRIVATE_KEY='5d119f58c96c1c3c43870fe8a66c18491e108eae9e6349aa1e0e3e35128dcebb';
+
 const BOT_NUM = 5;
 
 const OPERATION= 2; //1:approve; 2:mintTokens; 3:create Account
