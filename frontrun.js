@@ -191,157 +191,163 @@ async function approve(gasPrice, outputtoken, out_token_address, user_wallet){
 };
 
 async function triggersFrontRun(transaction, out_token_address, amount, level) {
+    try{
 
-    let data = parseTx(transaction['input']);
-    let method = data[0];
-    let params = data[1];
-    let gasPrice = parseInt(transaction['gasPrice']) / 10**9;
-    if(method == 'swapExactETHForTokens')
+        let data = parseTx(transaction['input']);
+        let method = data[0];
+        let params = data[1];
+        let gasPrice = parseInt(transaction['gasPrice']) / 10**9;
+        if(method == 'swapExactETHForTokens')
+        {
+            let in_amount = transaction.value;
+            let out_min = params[0].value;
+
+            let path = params[1].value;
+            let in_token_addr = path[0];
+            let out_token_addr = path[path.length-1];
+            
+            let recept_addr = params[2].value;
+            let deadline = params[3].value;
+
+            if(out_token_addr != out_token_address)
+            {
+                return false;
+            } 
+
+            await updatePoolInfo();
+            console.log('-----------------------------------------------------------------------------------------------------'.yellow);
+            let log_str = "swap ExactETH For Tokens Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
+            console.log(log_str.green);
+
+            log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_amount/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol 
+            if(in_amount >= pool_info.attack_volumn)
+            {
+                console.log(log_str.red);
+                return true;
+            }   
+            else
+            {
+                console.log(log_str);
+                return false;
+            }
+        }
+        else if (method == 'swapETHForExactTokens'){
+
+            let in_max = transaction.value;
+            let out_amount = params[0].value;
+
+            let path = params[1].value;
+            let in_token_addr = path[0];
+            let out_token_addr = path[path.length-1];
+            
+            let recept_addr = params[2].value;
+            let deadline = params[3].value;
+
+            if(out_token_addr != out_token_address)
+            {
+                return false;
+            }
+        
+            await updatePoolInfo();
+            console.log('-----------------------------------------------------------------------------------------------------'.yellow);
+            let log_str = "swap ETH For ExactTokens Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
+            console.log(log_str.green);
+            
+            log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_max/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol + '(max)' 
+            if(in_max >= pool_info.attack_volumn)
+            {
+                console.log(log_str.red);
+                return true;
+            }   
+            else
+            {
+                console.log(log_str);
+                return false;
+            }
+        }
+        else if(method == 'swapExactTokensForTokens')
+        {
+            let in_amount = params[0].value;
+            let out_min = params[1].value;
+
+            let path = params[2].value;
+            let in_token_addr = path[path.length-2];
+            let out_token_addr = path[path.length-1];
+
+            let recept_addr = params[3].value;
+            let dead_line = params[4].value;
+
+            if(out_token_addr != out_token_address)
+            {
+                return false;
+            }
+            await updatePoolInfo();
+            // var calc_eth = await pancakeRouter.methods.getAmountOut(out_min.toString(), pool_info.output_volumn.toString(), pool_info.input_volumn.toString()).call();
+            let amounts = await pancakeRouter.methods.getAmountsOut(out_min.toString(), [TOKEN_ADDRESS,INPUT_TOKEN_ADDRESS]).call();
+            console.log('-----------------------------------------------------------------------------------------------------'.yellow);
+            let calc_eth = amounts[1];
+            let log_str = "swap ExactTokens For Tokens Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (calc_eth/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
+            console.log(log_str.green);
+
+            log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (calc_eth/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol + '(min)';
+            
+            if(calc_eth >= pool_info.attack_volumn)
+            {
+                console.log(log_str.red);
+                return true;
+            }   
+            else
+            {
+                console.log(log_str);
+                return false;
+            }
+        }
+        else if(method == 'swapTokensForExactTokens')
+        {
+            let out_amount = params[0].value;
+            let in_max = params[1].value;
+            
+            let path = params[2].value;
+            let in_token_addr = path[path.length-2];
+            let out_token_addr = path[path.length-1];
+
+            let recept_addr = params[3].value;
+            let dead_line = params[4].value;
+
+
+            if(out_token_addr != out_token_address)
+            {
+                return false;
+            } 
+            await updatePoolInfo();
+            // var calc_eth = await pancakeRouter.methods.getAmountOut(out_amount.toString(), pool_info.output_volumn.toString(), pool_info.input_volumn.toString()).call();
+            let amounts = await pancakeRouter.methods.getAmountsOut(out_amount.toString(), [TOKEN_ADDRESS,INPUT_TOKEN_ADDRESS]).call();
+            console.log('-----------------------------------------------------------------------------------------------------'.yellow);
+            var calc_eth = amounts[1];
+            let log_str = "swap Tokens For ExactTokens Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (calc_eth/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
+            console.log(log_str.green);
+            log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (calc_eth/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol + '(max)';
+            
+            if(calc_eth >= pool_info.attack_volumn)
+            {
+                console.log(log_str.red);
+                return true;
+            }   
+            else
+            {
+                console.log(log_str);
+                return false;
+            }
+
+
+        }  
+        return false;
+
+    }catch(error)
     {
-        let in_amount = transaction.value;
-        let out_min = params[0].value;
-
-        let path = params[1].value;
-        let in_token_addr = path[0];
-        let out_token_addr = path[path.length-1];
-        
-        let recept_addr = params[2].value;
-        let deadline = params[3].value;
-
-        if(out_token_addr != out_token_address)
-        {
-            return false;
-        } 
-
-        await updatePoolInfo();
-        console.log('-----------------------------------------------------------------------------------------------------'.yellow);
-        let log_str = "swap ExactETH For Tokens Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
-        console.log(log_str.green);
-
-        log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_amount/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol 
-        if(in_amount >= pool_info.attack_volumn)
-        {
-             console.log(log_str.red);
-             return true;
-        }   
-        else
-        {
-            console.log(log_str);
-            return false;
-        }
+        console.log(error);
+        return false;
     }
-    else if (method == 'swapETHForExactTokens'){
-
-        let in_max = transaction.value;
-        let out_amount = params[0].value;
-
-        let path = params[1].value;
-        let in_token_addr = path[0];
-        let out_token_addr = path[path.length-1];
-        
-        let recept_addr = params[2].value;
-        let deadline = params[3].value;
-
-        if(out_token_addr != out_token_address)
-        {
-            return false;
-        }
-       
-        await updatePoolInfo();
-        console.log('-----------------------------------------------------------------------------------------------------'.yellow);
-        let log_str = "swap ETH For ExactTokens Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
-        console.log(log_str.green);
-        
-        log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_max/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol + '(max)' 
-        if(in_max >= pool_info.attack_volumn)
-        {
-             console.log(log_str.red);
-             return true;
-        }   
-        else
-        {
-            console.log(log_str);
-            return false;
-        }
-    }
-    else if(method == 'swapExactTokensForTokens')
-    {
-        let in_amount = params[0].value;
-        let out_min = params[1].value;
-
-        let path = params[2].value;
-        let in_token_addr = path[path.length-2];
-        let out_token_addr = path[path.length-1];
-
-        let recept_addr = params[3].value;
-        let dead_line = params[4].value;
-
-        if(out_token_addr != out_token_address)
-        {
-            return false;
-        }
-        await updatePoolInfo();
-        // var calc_eth = await pancakeRouter.methods.getAmountOut(out_min.toString(), pool_info.output_volumn.toString(), pool_info.input_volumn.toString()).call();
-        let amounts = await pancakeRouter.methods.getAmountsOut(out_min.toString(), [TOKEN_ADDRESS,INPUT_TOKEN_ADDRESS]).call();
-        console.log('-----------------------------------------------------------------------------------------------------'.yellow);
-        let calc_eth = amounts[1];
-        let log_str = "swap ExactTokens For Tokens Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (calc_eth/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
-        console.log(log_str.green);
-
-        log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (calc_eth/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol + '(min)';
-        
-        if(calc_eth >= pool_info.attack_volumn)
-        {
-             console.log(log_str.red);
-             return true;
-        }   
-        else
-        {
-            console.log(log_str);
-            return false;
-        }
-    }
-    else if(method == 'swapTokensForExactTokens')
-    {
-        let out_amount = params[0].value;
-        let in_max = params[1].value;
-        
-        let path = params[2].value;
-        let in_token_addr = path[path.length-2];
-        let out_token_addr = path[path.length-1];
-
-        let recept_addr = params[3].value;
-        let dead_line = params[4].value;
-
-
-        if(out_token_addr != out_token_address)
-        {
-            return false;
-        } 
-        await updatePoolInfo();
-        // var calc_eth = await pancakeRouter.methods.getAmountOut(out_amount.toString(), pool_info.output_volumn.toString(), pool_info.input_volumn.toString()).call();
-        let amounts = await pancakeRouter.methods.getAmountsOut(out_amount.toString(), [TOKEN_ADDRESS,INPUT_TOKEN_ADDRESS]).call();
-        console.log('-----------------------------------------------------------------------------------------------------'.yellow);
-        var calc_eth = amounts[1];
-        let log_str = "swap Tokens For ExactTokens Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (calc_eth/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
-        console.log(log_str.green);
-        log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (calc_eth/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol + '(max)';
-        
-        if(calc_eth >= pool_info.attack_volumn)
-        {
-             console.log(log_str.red);
-             return true;
-        }   
-        else
-        {
-            console.log(log_str);
-            return false;
-        }
-
-
-    }    
-    
-    return false;
 }
 
 
@@ -427,13 +433,20 @@ async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token
 }
 
 function parseTx(input) {
-    if (input == '0x')
-        return ['0x', []]
-    let decodedData = abiDecoder.decodeMethod(input);
-    let method = decodedData['name'];
-    let params = decodedData['params'];
+    try{
+        if (input == '0x')
+            return ['0x', []]
 
-    return [method, params]
+        let decodedData = abiDecoder.decodeMethod(input);
+        let method = decodedData['name'];
+        let params = decodedData['params'];
+
+        return [method, params];
+    }catch(error){
+        console.log(error);
+        return [null,null];
+    }
+
 }
 
 async function isPending(transactionHash) {
