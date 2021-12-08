@@ -115,8 +115,8 @@ async function handleTransaction(transaction, out_token_address, user_wallet, am
 
         let gasPrice = parseInt(transaction['gasPrice']);
         let newGasPrice = gasPrice + 50*ONE_GWEI;
-        console.log('Victim Tx gas price: '+ gasPrice);
-
+        console.log('Victim Tx gas price: '+ gasPrice/ONE_GWEI);
+        console.log('New Front Tx gas price: '+ newGasPrice/ONE_GWEI);
         var estimatedInput = ((amount*0.999)*(10**18)).toString();
         var realInput = (amount*(10**18)).toString();
         var gasLimit = (300000).toString();
@@ -124,9 +124,9 @@ async function handleTransaction(transaction, out_token_address, user_wallet, am
         await updatePoolInfo();
 
         var outputtoken = await pancakeRouter.methods.getAmountOut(estimatedInput, pool_info.input_volumn.toString(), pool_info.output_volumn.toString()).call();
-        console.log('output Token is: '+ outputtoken)
+        console.log('output Token is: '+ (outputtoken/(10**18)).toString())
         //0 is Buy
-        // swap(newGasPrice, gasLimit, outputtoken, realInput, 0, out_token_address, user_wallet, transaction);
+        swap(newGasPrice, gasLimit, outputtoken, realInput, 0, out_token_address, user_wallet, transaction);
 
         console.log("wait until the honest transaction is done...", transaction['hash']);
 
@@ -146,10 +146,10 @@ async function handleTransaction(transaction, out_token_address, user_wallet, am
         var outputeth = await pancakeRouter.methods.getAmountOut(outputtoken, pool_info.output_volumn.toString(), pool_info.input_volumn.toString()).call();
         outputeth = outputeth * 0.999;
 
-        console.log('outputETH is: '+ outputeth)
+        console.log('outputETH is: '+ (outputeth/10**18).toString)
 
          //1 is Sell
-        // await swap(newGasPrice, gasLimit, outputtoken, outputeth, 1, out_token_address, user_wallet, transaction);
+        await swap(newGasPrice, gasLimit, outputtoken, outputeth, 1, out_token_address, user_wallet, transaction);
         
         console.log('Sell succeed');
         succeed = true;
