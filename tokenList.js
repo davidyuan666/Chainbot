@@ -1,0 +1,15 @@
+const TOKEN_ADDRESS_ARRAY=[
+    // '0xbf37f781473f3b50e82c668352984865eac9853f',//MILK
+    // '0xd44fd09d74cd13838f137b590497595d6b3feea4',//ETERNAL, too large volumn
+    // '0x31e7ddebc4b4c1a9ba91a761390445f887354b25',//METADOGE
+    '0x12bb890508c125661e03b09ec06e404bc9289040',//RACA
+    '0x53e562b9b7e5e94b81f10e96ee70ad06df3d2657',//BABY
+    ];
+const BNB_AMOUNT=0.01;
+const RATION_ARRAY=[0.001,0.01];
+    
+module.exports = {
+    TOKEN_ADDRESS_ARRAY,
+    BNB_AMOUNT,
+    RATION_ARRAY
+};

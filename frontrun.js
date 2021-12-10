@@ -11,8 +11,8 @@ var BigNumber = require('big-number');
 const {PANCAKE_ROUTER_ADDRESS, PANCAKE_FACTORY_ADDRESS, PANCAKE_ROUTER_ABI, PANCAKE_FACTORY_ABI,
      PANCAKE_POOL_ABI, HTTP_PROVIDER_LINK, WEBSOCKET_PROVIDER_LINK} = require('./constants.js');
 
-const {PRIVATE_KEY, TOKEN_ADDRESS_ARRAY,BNB_AMOUNT, RATION_ARRAY} = require('./env.js');
-
+const {PRIVATE_KEY} = require('./env.js');
+const {TOKEN_ADDRESS_ARRAY,BNB_AMOUNT, RATION_ARRAY} = require('./tokenList.js');
 const INPUT_TOKEN_ADDRESS = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
 
 const ONE_GWEI = 1e9;
