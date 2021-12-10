@@ -11,7 +11,7 @@ var BigNumber = require('big-number');
 const {PANCAKE_ROUTER_ADDRESS, PANCAKE_FACTORY_ADDRESS, PANCAKE_ROUTER_ABI, PANCAKE_FACTORY_ABI,
      PANCAKE_POOL_ABI, HTTP_PROVIDER_LINK, WEBSOCKET_PROVIDER_LINK} = require('./constants.js');
 
-const {PRIVATE_KEY, TOKEN_ADDRESS_ARRAY, BNB_AMOUNT, RATION_ARRAY} = require('./env.js');
+const {PRIVATE_KEY, TOKEN_ADDRESS_ARRAY,BNB_AMOUNT, RATION_ARRAY} = require('./env.js');
 
 const INPUT_TOKEN_ADDRESS = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
 
@@ -24,10 +24,8 @@ var pancakeFactory;
 var subscription;
 var bnbTokenInfo;
 
-buy_finished = false;
-sell_finished = false;
-buy_failed = false;
-sell_failed = false;
+successFrontBuy = false;
+
 
 var TOKENDIC = {};
 
@@ -54,17 +52,21 @@ async function main() {
             }
             
             const user_wallet = web3.eth.accounts.privateKeyToAccount(PRIVATE_KEY);
-            var ret= prepareInputTokenInfo(user_wallet);
+            var ret= await prepareInputTokenInfo(user_wallet);
             if(!ret){
                 process.exit();
             }
 
-            var ret = prepareOutputTokenInfo(user_wallet)
+            var ret = await prepareOutputTokenAndPoolInfo(user_wallet)
             if(!ret){
                 process.exit();
             }
             
             targetTokenAddrs = Object.keys(TOKENDIC);
+
+            var log_str = '***** Pending Transaction Snipe *****'
+            console.log(log_str.green);
+
 
             subscription = web3Ws.eth.subscribe('pendingTransactions', function (error, result) {
             })
@@ -88,11 +90,12 @@ async function main() {
     }
 }
 
+
+  
 async function handleTransaction(transaction,targetTokenAddrs,user_wallet) {
     var selectedTokenAddr = await triggerToParseTx(transaction,targetTokenAddrs);
     if(selectedTokenAddr!=null){
-        console.log('trigger to Attack tx'.red);
-        // triggerToAttackTx(transaction,selectedTokenAddr,user_wallet)
+        await triggerToAttackTx(transaction,selectedTokenAddr,user_wallet)
     }
 }
     
@@ -103,7 +106,8 @@ async function triggerToParseTx(transaction,targetTokenAddrs) {
         let method = data[0];
         let params = data[1];
         let gasPrice = parseInt(transaction['gasPrice']) / 10**9;
- 
+
+        
         if(method == 'swapExactETHForTokens')
         {
             let txInAmount = transaction.value;
@@ -116,14 +120,15 @@ async function triggerToParseTx(transaction,targetTokenAddrs) {
 
             if(!targetTokenAddrs.includes(txOutTokenAddr))
             {
-                return false;
+                return null;
             } 
 
             await updatePoolInfo(txOutTokenAddr);
             console.log('-----------------------------------------------------------------------------------------------------'.yellow);
             let tokenDetail = TOKENDIC[txOutTokenAddr];
             let poolInfo = tokenDetail['poolInfo'];
-            let log_str = "swap ExactETH For Tokens" + '\t\t' +(poolInfo.thresholdAmount/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol + '\t' + (poolInfo.bnbBalance/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol;
+            let tokenInfo = tokenDetail['tokenInfo'];
+            let log_str = "swap ExactETH For Tokens" + '\t' +'Threshold: '+(poolInfo.thresholdAmount/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol + '\t' +'Total: '+ (poolInfo.bnbBalance/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol+'\t'+'Target: '+tokenInfo.symbol;
             console.log(log_str.green);
 
             log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (txInAmount/(10**bnbTokenInfo.decimals)).toFixed(3) + '\t' + bnbTokenInfo.symbol 
@@ -146,14 +151,15 @@ async function triggerToParseTx(transaction,targetTokenAddrs) {
 
             if(!targetTokenAddrs.includes(txOutTokenAddr))
             {
-                return false;
+                return null;
             } 
         
             await updatePoolInfo(txOutTokenAddr);
             console.log('-----------------------------------------------------------------------------------------------------'.yellow);
             let tokenDetail = TOKENDIC[txOutTokenAddr];
             let poolInfo = tokenDetail['poolInfo'];
-            let log_str = "swap ETH For ExactTokens" + '\t\t' +(poolInfo.thresholdAmount/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol + '\t' + (poolInfo.bnbBalance/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol;
+            let tokenInfo = tokenDetail['tokenInfo'];
+            let log_str = "swap ETH For ExactTokens" + '\t' +'Threshold: '+(poolInfo.thresholdAmount/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol + '\t' +'Total: '+ (poolInfo.bnbBalance/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol+'\t'+'Target: '+tokenInfo.symbol;
             console.log(log_str.green);
             
             log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (txInMax/(10**bnbTokenInfo.decimals)).toFixed(3) + '\t' + bnbTokenInfo.symbol + '(max)' 
@@ -176,7 +182,7 @@ async function triggerToParseTx(transaction,targetTokenAddrs) {
 
             if(!targetTokenAddrs.includes(txOutTokenAddr))
             {
-                return false;
+                return null;
             } 
             await updatePoolInfo(txOutTokenAddr);
             let amounts = await pancakeRouter.methods.getAmountsOut(txOutMin.toString(), [txOutTokenAddr,INPUT_TOKEN_ADDRESS]).call();
@@ -184,7 +190,8 @@ async function triggerToParseTx(transaction,targetTokenAddrs) {
             let calcEth = amounts[1];
             let tokenDetail = TOKENDIC[txOutTokenAddr];
             let poolInfo = tokenDetail['poolInfo'];
-            let log_str = "swap ExactTokens For Tokens" + '\t\t' +(poolInfo.thresholdAmount/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol + '\t' + (calcEth/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol;
+            let tokenInfo = tokenDetail['tokenInfo'];
+            let log_str = "swap ExactTokens For Tokens" + '\t' +'Threshold: '+(poolInfo.thresholdAmount/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol + '\t' +'Total: '+ (poolInfo.bnbBalance/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol+'\t'+'Target: '+tokenInfo.symbol;
             console.log(log_str.green);
 
             log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (calcEth/(10**bnbTokenInfo.decimals)).toFixed(3) + '\t' + bnbTokenInfo.symbol + '(min)';
@@ -202,8 +209,8 @@ async function triggerToParseTx(transaction,targetTokenAddrs) {
             let txInMax = params[1].value;
             
             let txPath = params[2].value;
-            let txInTokenAddr = path[path.length-2];
-            let txOutTokenAddr = path[path.length-1];
+            let txInTokenAddr = txPath[txPath.length-2];
+            let txOutTokenAddr = txPath[txPath.length-1];
 
             let txReceiverAddr = params[3].value;
             let txDeadline = params[4].value;
@@ -211,15 +218,16 @@ async function triggerToParseTx(transaction,targetTokenAddrs) {
 
             if(!targetTokenAddrs.includes(txOutTokenAddr))
             {
-                return false;
+                return null;
             } 
             await updatePoolInfo(txOutTokenAddr);
-            let amounts = await pancakeRouter.methods.getAmountsOut(out_amount.toString(), [TOKEN_ADDRESS,INPUT_TOKEN_ADDRESS]).call();
+            let amounts = await pancakeRouter.methods.getAmountsOut(txOutAmount.toString(), [txOutTokenAddr,INPUT_TOKEN_ADDRESS]).call();
             console.log('-----------------------------------------------------------------------------------------------------'.yellow);
             var calcEth = amounts[1];
             let tokenDetail = TOKENDIC[txOutTokenAddr];
             let poolInfo = tokenDetail['poolInfo'];
-            let log_str = "swap Tokens For ExactTokens Volumn" + '\t\t' +(poolInfo.thresholdAmount/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol + '\t' + (calcEth/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol;
+            let tokenInfo = tokenDetail['tokenInfo'];
+            let log_str = "swap Tokens For ExactTokens " + '\t' +'Threshold: '+(poolInfo.thresholdAmount/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol + '\t' +'Total: '+ (poolInfo.bnbBalance/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol+'\t'+'Target: '+tokenInfo.symbol;
             console.log(log_str.green);
             log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (calcEth/(10**bnbTokenInfo.decimals)).toFixed(3) + '\t' + bnbTokenInfo.symbol + '(max)';
             
@@ -229,7 +237,7 @@ async function triggerToParseTx(transaction,targetTokenAddrs) {
                 return txOutTokenAddr;
             }   
             console.log(log_str);
-        }  
+        } 
         return null;
 
     }catch(error)
@@ -243,11 +251,14 @@ async function triggerToAttackTx(transaction,selectedTokenAddr,user_wallet){
     if(subscription!=null){
         subscription.unsubscribe();
     }
+    var log_str = '***** Start to Front Run Special Pending TX *****'
+    console.log(log_str.red);
+
     try{
         console.log('Perform front running attack...');
 
         let gasPrice = parseInt(transaction['gasPrice']);
-        let newGasPrice = gasPrice + 50*ONE_GWEI;
+        let newGasPrice = gasPrice + 10*ONE_GWEI;
         console.log('Victim Tx gas price: '+ gasPrice/ONE_GWEI);
         console.log('New Front Tx gas price: '+ newGasPrice/ONE_GWEI);
         var estimatedInput = ((BNB_AMOUNT*0.999)*(10**18)).toString();
@@ -257,33 +268,24 @@ async function triggerToAttackTx(transaction,selectedTokenAddr,user_wallet){
         await updatePoolInfo(selectedTokenAddr);
         
         let outputAmount = await pancakeRouter.methods.getAmountsOut(estimatedInput, [INPUT_TOKEN_ADDRESS,selectedTokenAddr]).call();
-        console.log('Output Token Amount is: '+ (outputAmount[1]/(10**18)).toString())
         //0 is Buy
-        swap(newGasPrice, gasLimit, outputAmount[1], realInput, 0, selectedTokenAddr, user_wallet, transaction);
-
-        console.log("wait until the honest transaction is done...", transaction['hash']);
+        await swap(newGasPrice, gasLimit, outputAmount[1], realInput, 0, selectedTokenAddr, user_wallet, transaction);
 
         while (await isPendingTx(transaction['hash'])) {
         }
 
-        if(buy_failed)
+        if(successFrontBuy)
         {
-            succeed = false;
+            console.log('Front Buy succeed:')
             return;
         }   
         
-        console.log('Buy succeed:')
-        
         await updatePoolInfo(selectedTokenAddr);
+
         let bnbAmount = await pancakeRouter.methods.getAmountsOut(outputAmount[1], [selectedTokenAddr,INPUT_TOKEN_ADDRESS]).call();
-        bnbAmount = bnbAmount * 0.999;
-
-        console.log('outputETH is: '+ (bnbAmount/10**18).toString)
-
          //1 is Sell
-        await swap(newGasPrice, gasLimit, outputAmount[1], bnbAmount, 1, selectedTokenAddr, user_wallet, transaction);
+        await swap(newGasPrice, gasLimit, outputAmount[1], bnbAmount[1], 1, selectedTokenAddr, user_wallet, transaction);
         
-        console.log('Sell succeed');
     }catch(error){
         console.log(error.toString());
     }    
@@ -294,17 +296,18 @@ async function swap(gasPrice, gasLimit, tokenAmount, bnbAmount, trade, tokenAddr
     var deadline;
     var swap;
 
-    await web3.eth.getBlock('lastest', (error, block) => {
+    await web3.eth.getBlock('latest', (error, block) => {
         deadline = block.timestamp + 300; // transaction expires in 300 seconds (5 minutes)
     });
 
     deadline = web3.utils.toHex(deadline);
     
-    if(trade == 0) { //buy
+    if(trade == 0) { 
+        //buy
         let tokenDetail = TOKENDIC[tokenAddr];
         let tokenInfo = tokenDetail['tokenInfo'];
 
-        console.log('Get_Amount: '.red, (tokenAmount/(10**tokenInfo.decimals)).toFixed(3) + ' ' + tokenInfo.symbol);
+        console.log('Maybe Get Target Token Amount: '.red, (tokenAmount/(10**tokenInfo.decimals)).toFixed(3) + ' ' + tokenInfo.symbol);
 
         swap = pancakeRouter.methods.swapETHForExactTokens(bnbAmount.toString(), [INPUT_TOKEN_ADDRESS, tokenAddr], from.address, deadline);
         var encodedABI = swap.encodeABI();
@@ -317,8 +320,10 @@ async function swap(gasPrice, gasLimit, tokenAmount, bnbAmount, trade, tokenAddr
             data: encodedABI,
             value: bnbAmount
           };
-    } else { //sell
-        console.log('Get_Min_Amount '.yellow, (tokenAmount/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol);
+
+    } else { 
+        //sell
+        console.log('Maybe Get Min BNB Amount '.yellow, (bnbAmount/(10**bnbTokenInfo.decimals)).toFixed(3) + ' ' + bnbTokenInfo.symbol);
 
         swap = pancakeRouter.methods.swapExactTokensForETH(tokenAmount.toString(), bnbAmount.toString(), [tokenAddr, INPUT_TOKEN_ADDRESS], from.address, deadline);
         var encodedABI = swap.encodeABI();
@@ -336,37 +341,37 @@ async function swap(gasPrice, gasLimit, tokenAmount, bnbAmount, trade, tokenAddr
     var signedTx = await from.signTransaction(tx);
 
     if(trade == 0) {
-        let is_pending = await isPending(transaction['hash']);
+        console.log("wait until the honest transaction is done...", transaction['hash']);
+        let is_pending = await isPendingTx(transaction['hash']);
         if(!is_pending) {
-            console.log("The transaction you want to attack has already been completed!!!");
+            console.log("Regret! The transaction need front run has already been completed!!!".yellow);
             process.exit();
         }
     }
 
-    console.log('====signed transaction=====', gasLimit, gasPrice)
+    console.log('====signed transaction=====', 'gas Limit: '+gasLimit, 'gas Price: '+ gasPrice)
     await web3.eth.sendSignedTransaction(signedTx.rawTransaction)
     .on('transactionHash', function(hash){
-        console.log('swap : ', hash);
+        console.log('Swap Tx : ', hash);
     })
     .on('confirmation', function(confirmationNumber, receipt){
         if(trade == 0){
-          buy_finished = true;
+            successFrontBuy = true;
+            console.log('Success Front Buy'.blue);
         }
         else{
-          sell_finished = true;   
+          console.log('Success After Sell'.blue); 
         }
     })
     .on('receipt', function(receipt){
-
+        
     })
     .on('error', function(error, receipt) { // If the transaction was rejected by the network with a receipt, the second parameter will be the receipt.
         if(trade == 0){
-          buy_failed = true;
-          console.log('Attack failed(buy)')
+          console.log('Front Buy error happens '+ error.toString())
         }
         else{
-          sell_failed = true;   
-          console.log('Attack failed(sell)')
+          console.log('After Sell error happens '+ error.toString())
         }
     });
 }
@@ -393,32 +398,43 @@ async function isPendingTx(transactionHash) {
 }
 
 async function approve(gasPrice, outputAmount, tokenAddr, user_wallet){
-    var tokenInfo = TOKENDIC[tokenAddr];
-    var allowance = await tokenInfo.contract.methods.allowance(user_wallet.address, PANCAKE_ROUTER_ADDRESS).call();
-    
-    allowance = BigNumber(allowance);
-    outputAmount = BigNumber(outputAmount);
-    max_allowance = allowance;
-    if(allowance< outputAmount){
-        max_allowance = outputAmount;
-    }
-    var approveTX ={
-        from: user_wallet.address,
-        to: tokenAddr,
-        gas: 50000,
-        gasPrice: gasPrice*ONE_GWEI,
-        data: tokenInfo.contract.methods.approve(PANCAKE_ROUTER_ADDRESS, max_allowance).encodeABI()
-    }
+    try{
+        var tokenDetail = TOKENDIC[tokenAddr];
+        var tokenInfo = tokenDetail['tokenInfo'];
+        var allowance = await tokenInfo.contract.methods.allowance(user_wallet.address, PANCAKE_ROUTER_ADDRESS).call();
+        if(allowance > 0 ){
+            return false;
+        }
+        var allowance_new = BigNumber(allowance);
+        var outputAmount_new = BigNumber(outputAmount[1]);
+        max_allowance = allowance_new;
+        if(allowance_new< outputAmount_new){
+            max_allowance = outputAmount_new;
+        }
+        var approveTX ={
+            from: user_wallet.address,
+            to: tokenAddr,
+            gas: 50000,
+            gasPrice: gasPrice*ONE_GWEI,
+            data: tokenInfo.contract.methods.approve(PANCAKE_ROUTER_ADDRESS, max_allowance).encodeABI()
+        }
 
-    var signedTX = await user_wallet.signTransaction(approveTX);
-    var transactionHash = await web3.eth.sendSignedTransaction(signedTX.rawTransaction);
-    var receipt = await web3.eth.getTransactionReceipt(transactionHash);
-    console.log('Approved Token Tx: '+ receipt.toString());
+        var signedTX = await user_wallet.signTransaction(approveTX);
+        var transactionHash = await web3.eth.sendSignedTransaction(signedTX.rawTransaction);
+        var receipt = await web3.eth.getTransactionReceipt(transactionHash);
+        console.log('Approved Token Tx: '+ receipt.toString());
+        return true;
+
+    }catch(error){
+        console.log(error.toString())
+        return false;
+    }
+    
 };
 
 async function prepareInputTokenInfo(user_wallet){
     try{
-        var log_str = '***** Your Wallet Balance *****'
+        var log_str = '***** Your Wallet Information *****'
         console.log(log_str.green);
         log_str = 'wallet address:\t' + user_wallet.address;
         console.log(log_str.white);
@@ -443,8 +459,11 @@ async function prepareInputTokenInfo(user_wallet){
 
 }
 
-async function prepareOutputTokenInfo(user_wallet){
+async function prepareOutputTokenAndPoolInfo(user_wallet){
     try{
+        var log_str = '***** Your Output Token Information *****'
+        console.log(log_str.green);
+
         for(var i=0;i<TOKEN_ADDRESS_ARRAY.length;i++){
             var tokenAddr = TOKEN_ADDRESS_ARRAY[i];
             var ration = RATION_ARRAY[i];
@@ -453,7 +472,7 @@ async function prepareOutputTokenInfo(user_wallet){
             if(tokenInfo == null) {
               process.exit();
             }
-            var poolInfo = await getPoolInfo(INPUT_TOKEN_ADDRESS, tokenAddr)
+            var poolInfo = await getPoolInfo(INPUT_TOKEN_ADDRESS, tokenAddr,ration)
             if(poolInfo == null) {
                 process.exit();
             }
@@ -464,16 +483,20 @@ async function prepareOutputTokenInfo(user_wallet){
             }
             TOKENDIC[tokenAddr] = tokenDetail;
             await updatePoolInfo(tokenAddr);
-            var estimateTokenAmounts = await pancakeRouter.methods.getAmountsOut(((BNB_AMOUNT*1.5)*(10**18)).toString(),[INPUT_TOKEN_ADDRESS,outTokenAddr]).call();
-            console.log(BNB_AMOUNT+' get token estimate amounts: '+estimateTokenAmounts[1]/ 10**18+' used for approving');
+            var estimateTokenAmounts = await pancakeRouter.methods.getAmountsOut(((BNB_AMOUNT*1.5)*(10**18)).toString(),[INPUT_TOKEN_ADDRESS,tokenAddr]).call();
+            log_str = BNB_AMOUNT*1.5+' BNB get token estimate amounts: '+estimateTokenAmounts[1]/ 10**18+' '+tokenInfo.symbol+' used for approving'
+            console.log(log_str);
     
             var middleGasPrice = 6;
-            // await approve(middleGasPrice, estimateTokenAmounts, outTokenAddr, user_wallet);
+            // var ret = await approve(middleGasPrice, estimateTokenAmounts, tokenAddr, user_wallet);
+            // if(!ret){
+            //     return false
+            // }
         }
         return true;
     
     }catch(error){
-        console.log('Failed to Prepare Token info '+ error.toString())
+        console.log('Failed to Prepare Token & Pool Info '+ error.toString())
         return false;
     }
     
@@ -493,10 +516,9 @@ async function updatePoolInfo(tokenAddr) {
             var eth_balance = reserves[1];
             var token_balance = reserves[0];
         }
-
         poolInfo.bnbBalance = eth_balance;
         poolInfo.tokenBalance = token_balance;
-        poolInfo.thresholdAmount = eth_balance * (poolInfo.ration); 
+        poolInfo.thresholdAmount = eth_balance * (tokenDetail.ration); 
         return true;
 
     }catch (error) {
@@ -523,17 +545,17 @@ async function getTokenInfo(tokenAddr, tokenABIReq, user_wallet) {
         }   
         var tokenAbi = response.data.result;
         var tokenContract = new web3.eth.Contract(JSON.parse(tokenAbi), tokenAddr);
-        var balance = await token_contract.methods.balanceOf(user_wallet.address).call();
-        var decimals = await token_contract.methods.decimals().call();
-        var symbol =  await token_contract.methods.symbol().call();
+        var balance = await tokenContract.methods.balanceOf(user_wallet.address).call();
+        var decimals = await tokenContract.methods.decimals().call();
+        var symbol =  await tokenContract.methods.symbol().call();
         return {'contract': tokenContract, 'balance': balance, 'symbol': symbol, 'decimals': decimals}
     }catch(error){
-        console.log('Failed Get Token Info');
+        console.log('Failed Get Token Info '+ error.toString());
         return null;
     }
 }
 
-async function getPoolInfo(inputTokenAddr, outTokenAddr){
+async function getPoolInfo(inputTokenAddr, outTokenAddr,ration){
     try{
         var poolAddress = await pancakeFactory.methods.getPair(inputTokenAddr, outTokenAddr).call();
         if(poolAddress == '0x0000000000000000000000000000000000000000')
@@ -546,7 +568,7 @@ async function getPoolInfo(inputTokenAddr, outTokenAddr){
         var reserves = await poolContract.methods.getReserves().call();
 
         var token0Address = await poolContract.methods.token0().call();
-
+ 
         if(token0Address == inputTokenAddr) {
             var forward = true;
             var bnbBalance = reserves[0];
@@ -557,15 +579,13 @@ async function getPoolInfo(inputTokenAddr, outTokenAddr){
             var tokenBalance = reserves[0];
         }
 
-        var thresholdAmount = bnbBalance * (level/100);
+        var thresholdAmount = bnbBalance * ration;
         return {'contract': poolContract, 'forward': forward, 'bnbBalance': bnbBalance, 'tokenBalance': tokenBalance, 'thresholdAmount': thresholdAmount}
 
     }catch(error){
-        console.log('Error: Get Pari Info'+error.toString());
+        console.log('Error: Get Pair Info '+error.toString());
         return null;
     }
 }
-
-
 
 main();
