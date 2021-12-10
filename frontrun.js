@@ -277,7 +277,6 @@ async function triggerToAttackTx(transaction,selectedTokenAddr,user_wallet){
         if(successFrontBuy)
         {
             console.log('Front Buy succeed:')
-            return;
         }   
         
         await updatePoolInfo(selectedTokenAddr);
@@ -357,10 +356,12 @@ async function swap(gasPrice, gasLimit, tokenAmount, bnbAmount, trade, tokenAddr
     .on('confirmation', function(confirmationNumber, receipt){
         if(trade == 0){
             successFrontBuy = true;
-            console.log('Success Front Buy'.blue);
+            var currentTime = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '');   
+            console.log(currentTime+'Success Front Buy'.blue);
         }
         else{
-          console.log('Success After Sell'.blue); 
+            var currentTime = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '');   
+            console.log(currentTime+'Success After Sell'.blue); 
         }
     })
     .on('receipt', function(receipt){
